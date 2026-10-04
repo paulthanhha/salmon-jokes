@@ -22,7 +22,10 @@
   var jokes = [], order = [], counts = {};
   var cur = null, hintOn = false, ansOn = false, tab = "haha";
   var reacted = load("dj_reacted", {});
-  var PAGE = CFG.PAGE_SIZE || 20, sortMode = "new", page = 1;
+  var RANK_N = CFG.RANK_SIZE || 10, SAVED_N = CFG.SAVED_SIZE || 10, savedPage = 1;
+  var saved = load("dj_saved", []);
+  if (!Array.isArray(saved)) saved = [];
+  var PAGE = CFG.PAGE_SIZE || 18, sortMode = "new", page = 1;
 
   function load(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -63,6 +66,11 @@
     return d >= -1 && d <= NEW_DAYS;
   }
 
+  function isHidden(v) {
+    v = (v || "").trim().toLowerCase();
+    return v !== "" && ["false", "0", "no", "n", "không", "khong"].indexOf(v) < 0;
+  }
+
   function loadJokes() {
     if (!CFG.SHEET_CSV_URL) return Promise.resolve(SAMPLE);
     var u = CFG.SHEET_CSV_URL + (CFG.SHEET_CSV_URL.indexOf("?") > -1 ? "&" : "?") + "t=" + Date.now();
@@ -77,9 +85,10 @@
           hint: (r[2] || "").trim(),
           answer: (r[3] || "").trim(),
           date: parseDate(r[4]),
-          author: (r[5] || "").trim()
+          author: (r[5] || "").trim(),
+          hide: (r[6] || "").trim()
         };
-      }).filter(function (j) { return j.joke && j.answer; });
+      }).filter(function (j) { return j.joke && j.answer && !isHidden(j.hide); });
     });
   }
 
@@ -134,9 +143,9 @@
     board.innerHTML = '<div class="tiles">' + order.slice(from, from + PAGE).map(tileHTML).join("") + "</div>";
   }
 
-  function pageList(cur, total) {
+  function pageList(cur, total, maxAll) {
     var set = {}, out = [], prev = 0;
-    if (total <= 7) { for (var i = 1; i <= total; i++) set[i] = 1; }
+    if (total <= (maxAll || 7)) { for (var i = 1; i <= total; i++) set[i] = 1; }
     else { set[1] = 1; set[total] = 1; for (var d = -1; d <= 1; d++) if (cur + d >= 1 && cur + d <= total) set[cur + d] = 1; }
     Object.keys(set).map(Number).sort(function (a, b) { return a - b; }).forEach(function (p) {
       if (p - prev > 1) out.push(0);
@@ -168,6 +177,48 @@
     if (t) t.focus({ preventScroll: true });
   }
 
+  function isSaved(id) { return saved.indexOf(id) > -1; }
+
+  function renderSaved() {
+    var list = saved.map(byId).filter(Boolean), el = $("saved");
+    if (!list.length) {
+      el.innerHTML = '<p class="empty">Chưa lưu thẻ nào. Bấm biểu tượng dấu trang trong khung câu hỏi để lưu.</p>';
+      return;
+    }
+    var pages = Math.max(1, Math.ceil(list.length / SAVED_N));
+    savedPage = Math.min(Math.max(1, savedPage), pages);
+    var from = (savedPage - 1) * SAVED_N;
+    var pager = "";
+    if (pages > 1) {
+      pager = '<div class="spager" role="navigation" aria-label="Chuyển trang danh sách đã lưu">' +
+        '<button class="pg" type="button" data-spage="' + (savedPage - 1) + '" aria-label="Danh sách đã lưu: trang trước"' + (savedPage === 1 ? " disabled" : "") + ">‹</button>" +
+        pageList(savedPage, pages, 5).map(function (p) {
+          return p === 0 ? '<span class="pg-gap" aria-hidden="true">…</span>'
+            : '<button class="pg" type="button" data-spage="' + p + '" aria-label="Danh sách đã lưu: trang ' + p + '"' + (p === savedPage ? ' aria-current="page"' : "") + ">" + p + "</button>";
+        }).join("") +
+        '<button class="pg" type="button" data-spage="' + (savedPage + 1) + '" aria-label="Danh sách đã lưu: trang sau"' + (savedPage === pages ? " disabled" : "") + ">›</button></div>";
+    }
+    el.innerHTML = '<ul class="sv">' + list.slice(from, from + SAVED_N).map(function (j) {
+      return '<li><button class="op" type="button" data-open="' + esc(j.id) + '"><span class="rq">' + esc(j.joke) + "</span></button>" +
+        '<button class="rm" type="button" data-rm="' + esc(j.id) + '" aria-label="Bỏ lưu: ' + esc(j.joke) + '">✕</button></li>';
+    }).join("") + "</ul>" + pager;
+  }
+
+  function updateSave() {
+    var on = isSaved(cur.id), b = $("save"), label = on ? "Bỏ lưu thẻ này" : "Lưu thẻ này";
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", label);
+    b.title = label;
+  }
+
+  function toggleSave() {
+    var i = saved.indexOf(cur.id);
+    if (i > -1) saved.splice(i, 1); else saved.unshift(cur.id);
+    save("dj_saved", saved);
+    updateSave(); renderSaved();
+    toast(i > -1 ? "Đã bỏ lưu" : "Đã lưu thẻ");
+  }
+
   function renderRank() {
     if (!CFG.API_URL) {
       rankEl.innerHTML = '<p class="empty">Xếp hạng sẽ hiện khi kết nối Google Apps Script. Xem API_URL trong config.js.</p>';
@@ -176,7 +227,7 @@
     var list = jokes.map(function (j) { return { j: j, n: (counts[j.id] || {})[tab] || 0 }; })
       .filter(function (x) { return x.n > 0; })
       .sort(function (a, b) { return b.n - a.n; })
-      .slice(0, 10);
+      .slice(0, RANK_N);
     rankEl.innerHTML = list.length
       ? '<ol class="rank">' + list.map(function (x, i) {
           return '<li><button type="button" data-id="' + esc(x.j.id) + '"><span class="rk">' + (i + 1) + '</span><span class="rq">' + esc(x.j.joke) + '</span><span class="rn">' + x.n + "</span></button></li>";
@@ -216,6 +267,7 @@
     $("mt").textContent = "Câu " + idLabel(j);
     $("rxbox").hidden = !ansOn;
     updateReact();
+    updateSave();
   }
 
   function setHash(j) { try { history.replaceState(null, "", "#joke=" + encodeURIComponent(j.id)); } catch (e) {} }
@@ -246,14 +298,17 @@
 
   function react(type) {
     if (!ansOn) return;
-    if (reacted[cur.id]) { toast("Bạn đã chọn cho joke này rồi"); return; }
-    reacted[cur.id] = type;
+    var id = cur.id, prev = reacted[id];
+    if (prev === type) { toast("Bạn đã chọn rồi, bấm nút còn lại để đổi"); return; }
+    reacted[id] = type;
     save("dj_reacted", reacted);
-    counts[cur.id] = counts[cur.id] || { haha: 0, lay: 0 };
-    counts[cur.id][type]++;
+    counts[id] = counts[id] || { haha: 0, lay: 0 };
+    if (prev) counts[id][prev] = Math.max(0, (counts[id][prev] || 0) - 1);
+    counts[id][type] = (counts[id][type] || 0) + 1;
     updateReact(); renderBoard(); renderRank();
+    if (prev) toast("Đã đổi lựa chọn");
     if (CFG.API_URL) {
-      fetch(CFG.API_URL + "?action=react&id=" + encodeURIComponent(cur.id) + "&type=" + type, { mode: "no-cors" }).catch(function () {});
+      fetch(CFG.API_URL + "?action=react&id=" + encodeURIComponent(id) + "&type=" + type + (prev ? "&prev=" + prev : ""), { mode: "no-cors" }).catch(function () {});
     }
   }
 
@@ -325,6 +380,25 @@
   $("rh").onclick = function () { react("haha"); };
   $("rl").onclick = function () { react("lay"); };
   $("share").onclick = share;
+  $("save").onclick = toggleSave;
+  $("saved").addEventListener("click", function (e) {
+    var o = e.target.closest("[data-open]"), r = e.target.closest("[data-rm]");
+    var sp = e.target.closest("[data-spage]");
+    if (sp) {
+      if (!sp.disabled) {
+        savedPage = +sp.getAttribute("data-spage");
+        renderSaved();
+        var cp = $("saved").querySelector('.spager [aria-current="page"]');
+        if (cp) cp.focus();
+      }
+      return;
+    }
+    if (o) openJoke(byId(o.getAttribute("data-open")));
+    else if (r) {
+      var i = saved.indexOf(r.getAttribute("data-rm"));
+      if (i > -1) { saved.splice(i, 1); save("dj_saved", saved); renderSaved(); }
+    }
+  });
 
   dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
   dlg.addEventListener("close", function () {
@@ -345,6 +419,7 @@
     renderBoard();
     renderPager();
     renderRank();
+    renderSaved();
     fetchCounts();
     openFromHash();
   }).catch(function () {

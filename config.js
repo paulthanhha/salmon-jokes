@@ -11,5 +11,11 @@ window.CONFIG = {
   NEW_DAYS: 7,
 
   // Số thẻ tối đa trên mỗi trang.
-  PAGE_SIZE: 20
+  PAGE_SIZE: 18,
+
+  // Bảng xếp hạng hiện tối đa bao nhiêu joke (mỗi loại haha, lạy luôn).
+  RANK_SIZE: 10,
+
+  // Số thẻ trên mỗi trang của khung "Đã lưu".
+  SAVED_SIZE: 10
 };
