@@ -5,7 +5,7 @@ window.CONFIG = {
 
   // Link Web app của Google Apps Script (dùng để đếm reaction và xếp hạng).
   // Để trống thì ẩn số đếm và bảng xếp hạng.
-  API_URL: "https://script.google.com/macros/s/AKfycbx_tfPVOg4UV__LQfn8dszaopWFY1wzG00G24oBLKk0zK1k40thFI5eJOcUE_tQVF60/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbzrluFaLy4bs7bW5xgT1rrkKNmqRVdrrLXYo-edJiWaODgs-KVnsXm05FvXSoBbog/exec",
 
   // Joke có cột date trong bao nhiêu ngày gần nhất thì hiện huy hiệu "Mới" (cột date không bắt buộc).
   NEW_DAYS: 7,
