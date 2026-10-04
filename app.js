@@ -292,10 +292,10 @@
     var b = e.target.closest("button[data-id]");
     if (b) openJoke(byId(b.getAttribute("data-id")));
   });
-  document.querySelectorAll(".seg .tab").forEach(function (b) {
+  document.querySelectorAll(".seg .tab-b").forEach(function (b) {
     b.addEventListener("click", function () {
       tab = b.getAttribute("data-tab");
-      document.querySelectorAll(".seg .tab").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+      document.querySelectorAll(".seg .tab-b").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
       renderRank();
     });
   });
