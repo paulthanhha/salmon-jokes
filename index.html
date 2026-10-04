@@ -3,24 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kho dad joke</title>
-  <meta name="description" content="Kho dad joke: đọc, đoán, rồi xem đáp án.">
+  <script>try{var t=localStorage.getItem("dj_theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+  <title>Cá Hôi Hộp hay Cá Hồi Hộp</title>
+  <meta name="description" content="Cá Hôi Hộp hay Cá Hồi Hộp: dad jokes sáng tác và sưu tầm. Chọn một thẻ, đoán, rồi xem đáp án.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="wrap">
-    <header class="top">
-      <a class="brand" href="#" id="home">Kho dad joke</a>
-      <nav aria-label="Chính">
-        <button class="tab" id="nav-joke" type="button">Ngẫu nhiên</button>
-        <button class="tab" id="nav-top" type="button">Xếp hạng</button>
-      </nav>
-    </header>
-    <main id="app" aria-live="polite"><p class="empty">Đang tải joke…</p></main>
+    <div class="paper">
+      <div class="bar">
+        <button class="cta icon" id="theme" type="button" aria-label="Chuyển sang nền tối" aria-pressed="false" title="Chuyển sang nền tối">
+          <svg class="i-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>
+        </button>
+        <button class="cta" id="rand" type="button">🎲 Ngẫu nhiên</button>
+      </div>
+
+      <div class="inner">
+        <section class="hero">
+          <div class="namebox">
+            <h1>Cá Hôi Hộp hay Cá Hồi Hộp</h1>
+            <span class="pill p1" aria-hidden="true">Sáng tác</span>
+            <span class="pill p2" aria-hidden="true">Sưu tầm</span>
+            <span class="st s1" aria-hidden="true">Dad jokes</span>
+          </div>
+          <p class="sub"><i class="dot"></i><small>Dad jokes sáng tác và sưu tầm</small></p>
+        </section>
+
+        <div class="layout">
+          <main>
+          <div class="toolbar" id="toolbar" hidden>
+            <span class="cnt" id="total"></span>
+            <div class="sort" role="group" aria-label="Sắp xếp">
+              <span class="lbl">Sắp xếp</span>
+              <button class="sbtn" type="button" data-sort="new" aria-pressed="true">Mới nhất</button>
+              <button class="sbtn" type="button" data-sort="old" aria-pressed="false">Cũ nhất</button>
+            </div>
+          </div>
+          <div id="board" aria-live="polite"><p class="empty">Đang tải joke…</p></div>
+          <nav class="pager" id="pager" aria-label="Chuyển trang"></nav>
+        </main>
+
+          <aside class="side" id="rankbox" aria-labelledby="rt">
+            <h2 id="rt">Xếp hạng</h2>
+            <div class="seg" role="tablist">
+              <button class="tab-b" role="tab" type="button" data-tab="haha" aria-selected="true">😂 Haha nhất</button>
+              <button class="tab-b" role="tab" type="button" data-tab="lay" aria-selected="false">🙏 Lạy luôn nhất</button>
+            </div>
+            <div id="rank"></div>
+          </aside>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <dialog id="dlg" aria-labelledby="dq">
+    <div class="mc t0" id="mc">
+      <div class="mh">
+        <span class="mtab" id="mt"></span>
+        <span class="new zz" id="mnew" hidden>Mới</span>
+        <button class="btn x" id="mx" type="button" aria-label="Đóng">Đóng ✕</button>
+      </div>
+
+      <button class="q" id="dq" type="button" aria-expanded="false" aria-controls="da" autofocus></button>
+      <p class="by" id="by" hidden></p>
+      <p class="tip" id="tip">Bấm vào câu hỏi để xem đáp án</p>
+
+      <div class="hint" id="dh" hidden></div>
+      <button class="btn" id="hbtn" type="button" hidden>Cần gợi ý?</button>
+      <div class="answer" id="da" hidden></div>
+
+      <div class="rxbox" id="rxbox" hidden>
+        <p class="ask">Bạn thấy joke này thế nào?</p>
+        <div class="rx">
+          <button class="react" id="rh" type="button" data-type="haha" aria-pressed="false"><span class="e">😂</span>Haha<span class="n" id="rhn"></span></button>
+          <button class="react" id="rl" type="button" data-type="lay" aria-pressed="false"><span class="e">🙏</span>Lạy luôn<span class="n" id="rln"></span></button>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="btn" id="prev" type="button">‹ Trước</button>
+        <button class="btn" id="rnd" type="button">🎲 Ngẫu nhiên</button>
+        <button class="btn" id="next" type="button">Tiếp ›</button>
+        <button class="btn ibtn" id="share" type="button" aria-label="Sao chép link" title="Sao chép link">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15l6 -6"/><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464"/><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
   <script src="config.js"></script>
   <script src="app.js"></script>

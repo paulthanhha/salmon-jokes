@@ -2,23 +2,33 @@
   var CFG = window.CONFIG || {};
   var NEW_DAYS = CFG.NEW_DAYS || 7;
 
+  function daysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d; }
+
   var SAMPLE = [
-    { id: "1", joke: "Tại sao cà chua đỏ mặt?", hint: "Nghĩ đến món salad", answer: "Vì nó thấy salad đang thay đồ.", date: daysAgo(2) },
-    { id: "2", joke: "Tại sao bút chì buồn?", hint: "Nghĩ đến việc chuốt bút", answer: "Vì nó luôn bị gọt giũa.", date: daysAgo(30) },
-    { id: "3", joke: "Tại sao máy tính không bao giờ đói?", hint: "", answer: "Vì nó có rất nhiều byte.", date: daysAgo(60) },
-    { id: "4", joke: "Con gì đập thì sống, không đập thì chết?", hint: "Nằm trong lồng ngực", answer: "Con tim.", date: daysAgo(90) }
+    { id: "1", joke: "Tại sao cà chua đỏ mặt?", hint: "Nghĩ đến món salad", answer: "Vì nó thấy salad đang thay đồ.", date: daysAgo(95), author: "" },
+    { id: "2", joke: "Tại sao bút chì buồn?", hint: "Nghĩ đến việc chuốt bút", answer: "Vì nó luôn bị gọt giũa.", date: daysAgo(70), author: "" },
+    { id: "3", joke: "Tại sao máy tính không bao giờ đói?", hint: "", answer: "Vì nó có rất nhiều byte.", date: daysAgo(62), author: "" },
+    { id: "4", joke: "Tại sao sách toán luôn buồn?", hint: "Nghĩ đến nội dung trong sách", answer: "Vì nó có quá nhiều vấn đề.", date: daysAgo(40), author: "Tác giả B" },
+    { id: "5", joke: "Tại sao điện thoại đi gặp bác sĩ?", hint: "Nghĩ đến vạch sóng", answer: "Vì nó bị mất sóng.", date: daysAgo(33), author: "" },
+    { id: "6", joke: "Con gì đập thì sống, không đập thì chết?", hint: "Nằm trong lồng ngực", answer: "Con tim.", date: daysAgo(12), author: "Tác giả A" },
+    { id: "7", joke: "Cái gì của bạn nhưng người khác dùng nhiều hơn bạn?", hint: "", answer: "Tên của bạn.", date: daysAgo(5), author: "Tác giả B" },
+    { id: "8", joke: "Tại sao bộ xương không đi dự tiệc?", hint: "Nghĩ đến tiếng Anh: nobody", answer: "Vì nó chẳng có ai đi cùng.", date: daysAgo(2), author: "Tác giả A" }
   ];
 
-  var app = document.getElementById("app");
-  var toastEl = document.getElementById("toast");
-  var jokes = [], counts = {}, cur = null;
-  var view = "joke", tab = "haha", hintOn = false, ansOn = false, justRevealed = false;
-  var reacted = load("dj_reacted", {});
+  function $(id) { return document.getElementById(id); }
+  var board = $("board"), rankEl = $("rank"), dlg = $("dlg"), mc = $("mc"), toastEl = $("toast");
+  var dq = $("dq"), da = $("da"), dh = $("dh"), hbtn = $("hbtn"), tip = $("tip");
 
-  function daysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return d; }
+  var jokes = [], order = [], counts = {};
+  var cur = null, hintOn = false, ansOn = false, tab = "haha";
+  var reacted = load("dj_reacted", {});
+  var PAGE = CFG.PAGE_SIZE || 20, sortMode = "new", page = 1;
+
   function load(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function tint(id) { var h = 0; id = String(id); for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return h % 5; }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
 
   function parseCSV(t) {
     var rows = [], row = [], f = "", q = false;
@@ -66,93 +76,112 @@
           joke: (r[1] || "").trim(),
           hint: (r[2] || "").trim(),
           answer: (r[3] || "").trim(),
-          date: parseDate(r[4])
+          date: parseDate(r[4]),
+          author: (r[5] || "").trim()
         };
       }).filter(function (j) { return j.joke && j.answer; });
     });
+  }
+
+  function idNum(j) { return /^\s*-?\d+(\.\d+)?\s*$/.test(j.id) ? parseFloat(j.id) : NaN; }
+  function idLabel(j) { return /^\d+$/.test(j.id) ? pad(+j.id) : j.id; }
+
+  function applySort() {
+    var dir = sortMode === "new" ? -1 : 1;
+    order = jokes.slice().sort(function (a, b) {
+      var x = idNum(a), y = idNum(b);
+      if (!isNaN(x) && !isNaN(y) && x !== y) return (x - y) * dir;
+      return (a.i - b.i) * dir;
+    });
+    page = 1;
+  }
+
+  function build() {
+    jokes.forEach(function (j, i) { j.i = i; });
+    applySort();
   }
 
   function fetchCounts() {
     if (!CFG.API_URL) return;
     fetch(CFG.API_URL + "?action=counts").then(function (r) { return r.json(); }).then(function (d) {
       counts = d || {};
-      if (view === "top") renderTop();
-      else if (ansOn) renderJoke();
+      renderBoard(); renderRank();
+      if (dlg.open) updateReact();
     }).catch(function () {});
   }
 
-  function pick(exclude) {
-    var pool = jokes.length > 1 ? jokes.filter(function (j) { return !exclude || j.id !== exclude.id; }) : jokes;
-    return pool[Math.floor(Math.random() * pool.length)];
+  function tileHTML(j) {
+    var c = counts[j.id], mini = "";
+    if (CFG.API_URL && c && (c.haha || c.lay)) mini = "<span>😂 " + c.haha + "</span><span>🙏 " + c.lay + "</span>";
+    return '<button class="tile t' + tint(j.id) + '" type="button" data-id="' + esc(j.id) + '">' +
+      '<span class="tab">Câu ' + esc(idLabel(j)) + "</span>" +
+      '<span class="tq">' + esc(j.joke) + "</span>" +
+      '<span class="tbm">' +
+      '<span class="tf">' + (isNew(j) ? '<span class="new zz">Mới</span>' : "") + mini + "</span></span></button>";
   }
 
-  function route() {
-    var h = location.hash.slice(1);
-    if (h === "top") {
-      view = "top";
-      renderTop();
-    } else {
-      view = "joke";
-      var m = h.match(/^joke=(.+)$/);
-      var id = m ? decodeURIComponent(m[1]) : null;
-      var j = jokes.find(function (x) { return x.id === id; });
-      if (!j && jokes.length) {
-        j = pick(cur);
-        history.replaceState(null, "", "#joke=" + encodeURIComponent(j.id));
-      }
-      cur = j; hintOn = false; ansOn = false; justRevealed = false;
-      renderJoke();
-    }
-    document.getElementById("nav-joke").setAttribute("aria-current", view === "joke" ? "page" : "false");
-    document.getElementById("nav-top").setAttribute("aria-current", view === "top" ? "page" : "false");
-  }
+  function totalPages() { return Math.max(1, Math.ceil(order.length / PAGE)); }
 
-  function renderJoke() {
-    var j = cur;
-    if (!j) {
-      app.innerHTML = '<p class="empty">Chưa có joke nào. Thêm joke vào Google Sheet nhé.</p>';
+  function renderBoard() {
+    $("toolbar").hidden = !order.length;
+    $("total").textContent = order.length + " câu";
+    if (!order.length) {
+      board.innerHTML = '<p class="empty">Chưa có joke nào. Thêm joke vào Google Sheet nhé.</p>';
+      $("pager").innerHTML = "";
       return;
     }
-    var c = counts[j.id] || { haha: 0, lay: 0 }, mine = reacted[j.id];
-    var showN = !!CFG.API_URL;
-    var rx = ansOn
-      ? '<p class="ask">Bạn thấy joke này thế nào?</p><div class="rx">' +
-        '<button class="react r-haha" data-act="react" data-type="haha" aria-pressed="' + (mine === "haha") + '"><span class="e">😂</span>Haha' + (showN ? " " + c.haha : "") + "</button>" +
-        '<button class="react r-lay" data-act="react" data-type="lay" aria-pressed="' + (mine === "lay") + '"><span class="e">🙏</span>Lạy luôn' + (showN ? " " + c.lay : "") + "</button></div>"
-      : "";
-    app.innerHTML =
-      '<article class="card">' +
-      (isNew(j) ? '<span class="new">Mới</span>' : "") +
-      '<h1 class="joke">' + esc(j.joke) + "</h1>" +
-      (j.hint ? '<div class="hint" ' + (hintOn ? "" : "hidden") + ">" + esc(j.hint) + "</div>" : "") +
-      '<div class="answer' + (justRevealed ? " pop" : "") + '" ' + (ansOn ? "" : "hidden") + ">" + esc(j.answer) + "</div>" +
-      '<div class="actions">' +
-      (j.hint && !hintOn && !ansOn ? '<button class="btn b-hint" data-act="hint">Gợi ý</button>' : "") +
-      (!ansOn ? '<button class="btn b-ans" data-act="ans">Xem đáp án</button>' : "") +
-      "</div>" + rx +
-      '<div class="foot"><button class="link" data-act="share">Sao chép link</button>' +
-      '<button class="btn b-next" data-act="next">Joke khác</button></div></article>';
-    justRevealed = false;
+    var from = (page - 1) * PAGE;
+    board.innerHTML = '<div class="tiles">' + order.slice(from, from + PAGE).map(tileHTML).join("") + "</div>";
   }
 
-  function renderTop() {
+  function pageList(cur, total) {
+    var set = {}, out = [], prev = 0;
+    if (total <= 7) { for (var i = 1; i <= total; i++) set[i] = 1; }
+    else { set[1] = 1; set[total] = 1; for (var d = -1; d <= 1; d++) if (cur + d >= 1 && cur + d <= total) set[cur + d] = 1; }
+    Object.keys(set).map(Number).sort(function (a, b) { return a - b; }).forEach(function (p) {
+      if (p - prev > 1) out.push(0);
+      out.push(p); prev = p;
+    });
+    return out;
+  }
+
+  function renderPager() {
+    var total = totalPages(), el = $("pager");
+    if (total <= 1) { el.innerHTML = ""; return; }
+    el.innerHTML =
+      '<button class="pg" type="button" data-page="' + (page - 1) + '" aria-label="Trang trước"' + (page === 1 ? " disabled" : "") + ">‹</button>" +
+      pageList(page, total).map(function (p) {
+        return p === 0 ? '<span class="pg-gap" aria-hidden="true">…</span>'
+          : '<button class="pg" type="button" data-page="' + p + '" aria-label="Trang ' + p + '"' + (p === page ? ' aria-current="page"' : "") + ">" + p + "</button>";
+      }).join("") +
+      '<button class="pg" type="button" data-page="' + (page + 1) + '" aria-label="Trang sau"' + (page === total ? " disabled" : "") + ">›</button>" +
+      '<span class="pg-info">Trang ' + page + " / " + total + "</span>";
+  }
+
+  function goPage(p) {
+    p = Math.min(Math.max(1, p), totalPages());
+    if (p === page) return;
+    page = p;
+    renderBoard(); renderPager();
+    $("toolbar").scrollIntoView();
+    var t = board.querySelector(".tile");
+    if (t) t.focus({ preventScroll: true });
+  }
+
+  function renderRank() {
     if (!CFG.API_URL) {
-      app.innerHTML = '<article class="card"><p class="empty">Bảng xếp hạng sẽ hiện khi kết nối Google Apps Script. Xem API_URL trong config.js.</p></article>';
+      rankEl.innerHTML = '<p class="empty">Xếp hạng sẽ hiện khi kết nối Google Apps Script. Xem API_URL trong config.js.</p>';
       return;
     }
     var list = jokes.map(function (j) { return { j: j, n: (counts[j.id] || {})[tab] || 0 }; })
       .filter(function (x) { return x.n > 0; })
       .sort(function (a, b) { return b.n - a.n; })
       .slice(0, 10);
-    app.innerHTML =
-      '<div class="seg" role="tablist">' +
-      '<button class="tab" role="tab" data-act="tab" data-tab="haha" aria-selected="' + (tab === "haha") + '">😂 Haha nhất</button>' +
-      '<button class="tab" role="tab" data-act="tab" data-tab="lay" aria-selected="' + (tab === "lay") + '">🙏 Lạy luôn nhất</button></div>' +
-      (list.length
-        ? '<ol class="rank">' + list.map(function (x, i) {
-            return '<li><button data-act="open" data-id="' + esc(encodeURIComponent(x.j.id)) + '"><span class="rk">' + (i + 1) + '</span><span>' + esc(x.j.joke) + '</span><span class="rn">' + x.n + "</span></button></li>";
-          }).join("") + "</ol>"
-        : '<article class="card"><p class="empty">Chưa có ai bình chọn. Xem vài joke rồi quay lại nhé.</p></article>');
+    rankEl.innerHTML = list.length
+      ? '<ol class="rank">' + list.map(function (x, i) {
+          return '<li><button type="button" data-id="' + esc(x.j.id) + '"><span class="rk">' + (i + 1) + '</span><span class="rq">' + esc(x.j.joke) + '</span><span class="rn">' + x.n + "</span></button></li>";
+        }).join("") + "</ol>"
+      : '<p class="empty">Chưa có ai bình chọn. Mở vài thẻ rồi quay lại nhé.</p>';
   }
 
   function toast(msg) {
@@ -162,14 +191,67 @@
     toast.t = setTimeout(function () { toastEl.classList.remove("on"); }, 1800);
   }
 
+  function updateReact() {
+    var c = counts[cur.id] || { haha: 0, lay: 0 }, mine = reacted[cur.id], showN = !!CFG.API_URL;
+    $("rh").setAttribute("aria-pressed", String(mine === "haha"));
+    $("rl").setAttribute("aria-pressed", String(mine === "lay"));
+    $("rhn").textContent = showN ? c.haha : "";
+    $("rln").textContent = showN ? c.lay : "";
+  }
+
+  function update() {
+    var j = cur;
+    mc.className = "mc t" + tint(j.id);
+    $("mnew").hidden = !isNew(j);
+    dq.textContent = j.joke;
+    dq.setAttribute("aria-expanded", String(ansOn));
+    tip.textContent = ansOn ? "Bấm vào câu hỏi để ẩn đáp án" : "Bấm vào câu hỏi để xem đáp án";
+    da.textContent = j.answer;
+    da.hidden = !ansOn;
+    dh.textContent = j.hint ? "Gợi ý: " + j.hint : "";
+    dh.hidden = !(hintOn && j.hint);
+    hbtn.hidden = !(j.hint && !hintOn && !ansOn);
+    $("by").innerHTML = j.author ? "Tác giả: <b>" + esc(j.author) + "</b>" : "";
+    $("by").hidden = !j.author;
+    $("mt").textContent = "Câu " + idLabel(j);
+    $("rxbox").hidden = !ansOn;
+    updateReact();
+  }
+
+  function setHash(j) { try { history.replaceState(null, "", "#joke=" + encodeURIComponent(j.id)); } catch (e) {} }
+
+  function openJoke(j) {
+    if (!j) return;
+    cur = j; hintOn = false; ansOn = false;
+    update();
+    if (!dlg.open) dlg.showModal();
+    setHash(j);
+  }
+
+  function go(delta) {
+    var n = (order.indexOf(cur) + delta + order.length) % order.length;
+    openJoke(order[n]);
+  }
+
+  function randomJoke() {
+    if (!order.length) return;
+    var pool = order.length > 1 ? order.filter(function (j) { return j !== cur; }) : order;
+    openJoke(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  function flip() {
+    ansOn = !ansOn;
+    update();
+  }
+
   function react(type) {
-    if (!cur) return;
+    if (!ansOn) return;
     if (reacted[cur.id]) { toast("Bạn đã chọn cho joke này rồi"); return; }
     reacted[cur.id] = type;
     save("dj_reacted", reacted);
     counts[cur.id] = counts[cur.id] || { haha: 0, lay: 0 };
     counts[cur.id][type]++;
-    renderJoke();
+    updateReact(); renderBoard(); renderRank();
     if (CFG.API_URL) {
       fetch(CFG.API_URL + "?action=react&id=" + encodeURIComponent(cur.id) + "&type=" + type, { mode: "no-cors" }).catch(function () {});
     }
@@ -182,32 +264,90 @@
     else toast(url);
   }
 
-  app.addEventListener("click", function (e) {
-    var b = e.target.closest("[data-act]");
-    if (!b) return;
-    var a = b.getAttribute("data-act");
-    if (a === "hint") { hintOn = true; renderJoke(); }
-    else if (a === "ans") { ansOn = true; justRevealed = true; renderJoke(); }
-    else if (a === "react") react(b.getAttribute("data-type"));
-    else if (a === "share") share();
-    else if (a === "next") { var j = pick(cur); location.hash = "joke=" + encodeURIComponent(j.id); }
-    else if (a === "tab") { tab = b.getAttribute("data-tab"); renderTop(); }
-    else if (a === "open") location.hash = "joke=" + b.getAttribute("data-id");
+  function byId(id) { return order.filter(function (j) { return j.id === id; })[0]; }
+
+  function openFromHash() {
+    var m = location.hash.match(/^#joke=(.+)$/);
+    if (!m) return;
+    var j = byId(decodeURIComponent(m[1]));
+    if (j && (j !== cur || !dlg.open)) openJoke(j);
+  }
+
+  board.addEventListener("click", function (e) {
+    var t = e.target.closest(".tile");
+    if (t) openJoke(byId(t.getAttribute("data-id")));
+  });
+  $("pager").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-page]");
+    if (b && !b.disabled) goPage(+b.getAttribute("data-page"));
+  });
+  document.querySelectorAll(".sbtn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      sortMode = b.getAttribute("data-sort");
+      document.querySelectorAll(".sbtn").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      applySort(); renderBoard(); renderPager();
+    });
+  });
+  rankEl.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-id]");
+    if (b) openJoke(byId(b.getAttribute("data-id")));
+  });
+  document.querySelectorAll(".seg .tab").forEach(function (b) {
+    b.addEventListener("click", function () {
+      tab = b.getAttribute("data-tab");
+      document.querySelectorAll(".seg .tab").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+      renderRank();
+    });
   });
 
-  document.getElementById("nav-joke").onclick = function () {
-    if (view === "top") { var j = cur || pick(); location.hash = "joke=" + encodeURIComponent(j.id); }
-    else { var n = pick(cur); location.hash = "joke=" + encodeURIComponent(n.id); }
+  var root = document.documentElement, themeBtn = $("theme");
+  function applyTheme(t) {
+    root.setAttribute("data-theme", t);
+    var label = t === "dark" ? "Chuyển sang nền sáng" : "Chuyển sang nền tối";
+    themeBtn.setAttribute("aria-pressed", String(t === "dark"));
+    themeBtn.setAttribute("aria-label", label);
+    themeBtn.title = label;
+  }
+  applyTheme(root.getAttribute("data-theme") === "dark" ? "dark" : "light");
+  themeBtn.onclick = function () {
+    var t = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(t);
+    try { localStorage.setItem("dj_theme", t); } catch (e) {}
   };
-  document.getElementById("nav-top").onclick = function () { location.hash = "top"; };
-  document.getElementById("home").onclick = function (e) { e.preventDefault(); document.getElementById("nav-joke").click(); };
-  window.addEventListener("hashchange", route);
+
+  $("rand").onclick = randomJoke;
+  $("rnd").onclick = randomJoke;
+  $("prev").onclick = function () { go(-1); };
+  $("next").onclick = function () { go(1); };
+  $("mx").onclick = function () { dlg.close(); };
+  dq.onclick = flip;
+  hbtn.onclick = function () { hintOn = true; update(); };
+  $("rh").onclick = function () { react("haha"); };
+  $("rl").onclick = function () { react("lay"); };
+  $("share").onclick = share;
+
+  dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener("close", function () {
+    if (location.hash) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
+  });
+  dlg.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+  });
+  window.addEventListener("hashchange", function () {
+    if (location.hash) openFromHash();
+    else if (dlg.open) dlg.close();
+  });
 
   loadJokes().then(function (list) {
     jokes = list;
-    route();
+    build();
+    renderBoard();
+    renderPager();
+    renderRank();
     fetchCounts();
+    openFromHash();
   }).catch(function () {
-    app.innerHTML = '<p class="empty">Không tải được joke. Kiểm tra lại SHEET_CSV_URL trong config.js.</p>';
+    board.innerHTML = '<p class="empty">Không tải được joke. Kiểm tra lại SHEET_CSV_URL trong config.js.</p>';
   });
 })();
