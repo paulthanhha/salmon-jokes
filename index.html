@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kho dad joke</title>
+  <meta name="description" content="Kho dad joke: đọc, đoán, rồi xem đáp án.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="#" id="home">Kho dad joke</a>
+      <nav aria-label="Chính">
+        <button class="tab" id="nav-joke" type="button">Ngẫu nhiên</button>
+        <button class="tab" id="nav-top" type="button">Xếp hạng</button>
+      </nav>
+    </header>
+    <main id="app" aria-live="polite"><p class="empty">Đang tải joke…</p></main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
