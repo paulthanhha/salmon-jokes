@@ -177,6 +177,40 @@
     if (t) t.focus({ preventScroll: true });
   }
 
+  function hash32(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b) >>> 0;
+    h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35) >>> 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  function vnToday() {
+    var d = new Date(Date.now() + 7 * 3600 * 1000);
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+  }
+
+  function jokeOfTheDay() {
+    if (!jokes.length) return null;
+    var t = vnToday(), key = t.y + "-" + pad(t.m) + "-" + pad(t.d), best = null, bh = -1;
+    jokes.forEach(function (j) {
+      var h = hash32(key + "|" + j.id);
+      if (h > bh) { bh = h; best = j; }
+    });
+    return { joke: best, t: t };
+  }
+
+  function renderDotd() {
+    var r = jokeOfTheDay(), wrap = $("dotdwrap");
+    wrap.hidden = !r;
+    if (!r) return;
+    $("dotdm").textContent = "Tháng " + r.t.m;
+    $("dotdd").textContent = pad(r.t.d);
+    $("dotdq").textContent = r.joke.joke;
+    $("dotd").setAttribute("data-id", r.joke.id);
+    $("dotd").setAttribute("aria-label", "Joke của ngày " + r.t.d + "/" + r.t.m + ": " + r.joke.joke);
+  }
+
   function isSaved(id) { return saved.indexOf(id) > -1; }
 
   function renderSaved() {
@@ -268,6 +302,117 @@
     $("rxbox").hidden = !ansOn;
     updateReact();
     updateSave();
+    updateComments();
+  }
+
+  var EMOJIS = ["🙂", "😀", "😂", "😎", "🤓", "🥳", "😴", "🤔", "😅", "🙃", "🐟", "🐱", "🐶", "🐼", "🦊", "🐸", "🐙", "🦄", "🌵", "🍕", "🍜", "⚡", "🔥", "🌈"];
+  var profile = load("dj_profile", {});
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) profile = {};
+  if (!profile.guest) { profile.guest = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); save("dj_profile", profile); }
+  var cmap = {}, cmFor = null, lastSent = +load("dj_lastc", 0) || 0;
+
+  function cleanNick(v) { return String(v || "").replace(/\s+/g, " ").trim().slice(0, 20); }
+  function saveProfile() { save("dj_profile", profile); }
+
+  function ago(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var s = Math.max(0, (Date.now() - d.getTime()) / 1000);
+    if (s < 60) return "vừa xong";
+    if (s < 3600) return Math.floor(s / 60) + " phút trước";
+    if (s < 86400) return Math.floor(s / 3600) + " giờ trước";
+    if (s < 7 * 86400) return Math.floor(s / 86400) + " ngày trước";
+    return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
+  }
+
+  function renderComments() {
+    var m = cmap[cur.id] || { state: "loading", items: [], total: 0 }, st = $("cmst");
+    $("cmn").textContent = m.state === "ok" ? "(" + m.total + ")" : "";
+    if (m.state === "loading") { st.textContent = "Đang tải bình luận…"; st.hidden = false; }
+    else if (m.state === "err") { st.textContent = "Không tải được bình luận."; st.hidden = false; }
+    else if (!m.items.length) { st.textContent = "Chưa có bình luận nào. Bạn viết đầu tiên nhé."; st.hidden = false; }
+    else st.hidden = true;
+    $("cml").innerHTML = m.items.map(function (c) {
+      var anon = !c.n;
+      return '<li class="cmi"><span class="cav2" aria-hidden="true">' + esc(c.a || EMOJIS[0]) + "</span>" +
+        '<div class="cmb"><div class="cmm"><b' + (anon ? ' class="anon"' : "") + ">" + esc(anon ? "Ẩn danh" : c.n) + "</b>" + esc(ago(c.t)) + "</div>" +
+        '<p class="cmt">' + esc(c.c) + "</p></div></li>";
+    }).join("");
+  }
+
+  function loadComments(id) {
+    var m = cmap[id];
+    if (m && (m.state === "loading" || m.state === "ok")) return;
+    cmap[id] = { state: "loading", items: [], total: 0 };
+    renderComments();
+    fetch(CFG.API_URL + "?action=comments&id=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (d) {
+      var items = (d && d.items) || [];
+      cmap[id] = { state: "ok", items: items, total: (d && d.total) || items.length };
+      if (cur && cur.id === id) renderComments();
+    }).catch(function () {
+      cmap[id] = { state: "err", items: [], total: 0 };
+      if (cur && cur.id === id) renderComments();
+    });
+  }
+
+  function updateComments() {
+    var show = !!CFG.API_URL && ansOn;
+    $("cm").hidden = !show;
+    if (!show) return;
+    if (cmFor !== cur.id) { $("cmtext").value = ""; $("cmc").textContent = "0/300"; cmFor = cur.id; }
+    var m = cmap[cur.id];
+    if (!m || m.state === "err") loadComments(cur.id); else renderComments();
+  }
+
+  function pickAvatar(em) {
+    profile.avatar = em;
+    saveProfile();
+    $("cmav").textContent = em;
+    Array.prototype.forEach.call($("cmem").children, function (b) { b.setAttribute("aria-pressed", String(b.textContent === em)); });
+  }
+
+  function initComments() {
+    $("cmem").innerHTML = EMOJIS.map(function (em) { return '<button type="button" aria-pressed="false">' + em + "</button>"; }).join("");
+    pickAvatar(EMOJIS.indexOf(profile.avatar) > -1 ? profile.avatar : EMOJIS[0]);
+    $("cmnick").value = cleanNick(profile.nick);
+    $("cmav").onclick = function () {
+      var open = $("cmem").hidden;
+      $("cmem").hidden = !open;
+      $("cmav").setAttribute("aria-expanded", String(open));
+    };
+    $("cmem").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      pickAvatar(b.textContent);
+      $("cmem").hidden = true;
+      $("cmav").setAttribute("aria-expanded", "false");
+      $("cmav").focus();
+    });
+    $("cmnick").addEventListener("change", function () { profile.nick = cleanNick($("cmnick").value); saveProfile(); });
+    $("cmtext").addEventListener("input", function () { $("cmc").textContent = $("cmtext").value.length + "/300"; });
+    $("cmtext").addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("cmsend").click(); }
+    });
+    $("cmf").addEventListener("submit", function (e) {
+      e.preventDefault();
+      if ($("cmhp").value) return;
+      var text = $("cmtext").value.trim();
+      if (!text) { toast("Hãy viết nội dung bình luận"); return; }
+      var wait = 20000 - (Date.now() - lastSent);
+      if (wait > 0) { toast("Đợi " + Math.ceil(wait / 1000) + " giây rồi gửi tiếp nhé"); return; }
+      var nick = cleanNick($("cmnick").value), avatar = profile.avatar || EMOJIS[0], id = cur.id;
+      profile.nick = nick; saveProfile();
+      lastSent = Date.now(); save("dj_lastc", lastSent);
+      text = text.slice(0, 300);
+      fetch(CFG.API_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ id: id, nick: nick, avatar: avatar, text: text, guest: profile.guest, website: "" }) }).catch(function () {});
+      var m = cmap[id] = cmap[id] && cmap[id].state === "ok" ? cmap[id] : { state: "ok", items: [], total: 0 };
+      m.items.unshift({ n: nick, a: avatar, c: text, t: new Date().toISOString() });
+      m.total++;
+      $("cmtext").value = ""; $("cmc").textContent = "0/300";
+      renderComments();
+      toast("Đã gửi bình luận");
+    });
   }
 
   function setHash(j) { try { history.replaceState(null, "", "#joke=" + encodeURIComponent(j.id)); } catch (e) {} }
@@ -381,6 +526,7 @@
   $("rl").onclick = function () { react("lay"); };
   $("share").onclick = share;
   $("save").onclick = toggleSave;
+  $("dotd").onclick = function () { openJoke(byId($("dotd").getAttribute("data-id"))); };
   $("saved").addEventListener("click", function (e) {
     var o = e.target.closest("[data-open]"), r = e.target.closest("[data-rm]");
     var sp = e.target.closest("[data-spage]");
@@ -405,6 +551,8 @@
     if (location.hash) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
   });
   dlg.addEventListener("keydown", function (e) {
+    var tn = (e.target.tagName || "").toLowerCase();
+    if (tn === "input" || tn === "textarea") return;
     if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
   });
@@ -413,6 +561,8 @@
     else if (dlg.open) dlg.close();
   });
 
+  initComments();
+
   loadJokes().then(function (list) {
     jokes = list;
     build();
@@ -420,6 +570,7 @@
     renderPager();
     renderRank();
     renderSaved();
+    renderDotd();
     fetchCounts();
     openFromHash();
   }).catch(function () {

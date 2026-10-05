@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>try{var t=localStorage.getItem("dj_theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-  <title>Cá Hôi Hộp hay Cá Hồi Hộp</title>
-  <meta name="description" content="Cá Hôi Hộp hay Cá Hồi Hộp: dad jokes sáng tác và sưu tầm. Chọn một thẻ, đoán, rồi xem đáp án.">
+  <title>Cá Hồi Hộp</title>
+  <meta name="description" content="Cá Hồi Hộp: dad jokes sáng tác và sưu tầm. Chọn một thẻ, đoán, rồi xem đáp án.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐟</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,7 @@
       <div class="inner">
         <section class="hero">
           <div class="namebox">
-            <h1>Cá Hôi Hộp hay Cá Hồi Hộp</h1>
+            <h1>Cá Hồi Hộp</h1>
             <span class="pill p1" aria-hidden="true">Sáng tác</span>
             <span class="pill p2" aria-hidden="true">Sưu tầm</span>
             <span class="st s1" aria-hidden="true">Dad jokes</span>
@@ -36,6 +36,14 @@
 
         <div class="layout">
           <main>
+          <section class="dotd-wrap" id="dotdwrap" aria-label="Joke của ngày" hidden>
+            <button class="dotd" id="dotd" type="button">
+              <span class="dtab">Joke của ngày</span>
+              <span class="cal" aria-hidden="true"><span class="calm" id="dotdm"></span><span class="cald" id="dotdd"></span></span>
+              <span class="dbody"><span class="dtq" id="dotdq"></span><span class="dgo">Bấm để đoán và xem đáp án</span></span>
+            </button>
+          </section>
+
           <div class="toolbar" id="toolbar" hidden>
             <span class="cnt" id="total"></span>
             <div class="sort" role="group" aria-label="Sắp xếp">
@@ -90,6 +98,25 @@
           <button class="react" id="rl" type="button" data-type="lay" aria-pressed="false"><span class="e">🙏</span>Lạy luôn<span class="n" id="rln"></span></button>
         </div>
       </div>
+
+      <section class="cm" id="cm" hidden aria-labelledby="cmh">
+        <h3 class="cmh" id="cmh">Bình luận <span id="cmn"></span></h3>
+        <form class="cmf" id="cmf" autocomplete="off">
+          <div class="cmrow">
+            <button class="cav" id="cmav" type="button" aria-label="Chọn emoji đại diện" aria-expanded="false" aria-controls="cmem">🙂</button>
+            <input id="cmnick" type="text" maxlength="20" placeholder="Ẩn danh (nhập biệt danh nếu muốn)" aria-label="Biệt danh">
+          </div>
+          <div class="emojis" id="cmem" role="group" aria-label="Chọn emoji đại diện" hidden></div>
+          <textarea id="cmtext" maxlength="300" rows="2" placeholder="Viết bình luận…" aria-label="Nội dung bình luận"></textarea>
+          <input class="hp" id="cmhp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="cmrow">
+            <span class="cnt" id="cmc">0/300</span>
+            <button class="btn" id="cmsend" type="submit">Gửi</button>
+          </div>
+        </form>
+        <p class="cmst" id="cmst" hidden></p>
+        <ul class="cml" id="cml"></ul>
+      </section>
 
       <div class="nav">
         <button class="btn" id="prev" type="button">‹ Trước</button>
