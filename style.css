@@ -45,7 +45,8 @@ html[data-theme=dark] .i-moon{display:none}
 .hero{position:relative;text-align:center;padding:26px 0 0}
 .namebox{position:relative;display:inline-block;max-width:100%;padding:12px 28px 8px;border:2px solid var(--orange);transform:rotate(-.6deg);background:var(--namebg)}
 .namebox:after{content:"";position:absolute;inset:-4px -3px -3px -5px;border:1.5px solid var(--orange);transform:rotate(1.1deg);pointer-events:none}
-.namebox h1{margin:0;font-family:var(--pix);font-weight:400;text-transform:uppercase;font-size:clamp(40px,9vw,80px);line-height:.95;letter-spacing:.02em;-webkit-text-stroke:1.5px var(--ink)}
+.nw{white-space:nowrap}
+.namebox h1{margin:0;font-family:var(--pix);font-weight:400;text-transform:uppercase;font-size:clamp(32px,7vw,72px);line-height:.95;letter-spacing:.02em;-webkit-text-stroke:1.5px var(--ink)}
 .pill{position:absolute;z-index:2;font:700 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 12px;border-radius:99px;background:var(--mint);color:var(--dk);box-shadow:0 2px 0 rgba(28,25,24,.2)}
 .p1{top:-18px;left:-34px}
 .p2{top:-16px;right:-38px;background:var(--butter)}
